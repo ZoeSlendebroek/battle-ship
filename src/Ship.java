@@ -4,9 +4,9 @@ public abstract class Ship {
     protected int length;           // Length of Ship
     protected int row;              // Starting Row
     protected int column;           // Starting column
-    protected boolean layout;       // Determines whether ship is horizontal or vertical
+    protected boolean isHorizontal;       // Determines whether ship is horizontal or vertical
     protected boolean[] hits;       // Tracks where a ship is hit
-    protected String shiptype;      //
+
 
 
     // Constructors
@@ -29,7 +29,7 @@ public abstract class Ship {
     }
 
     public boolean getLayout(){
-        return layout;
+        return isHorizontal;
     }
 
     public boolean[] getHits(){
@@ -39,5 +39,17 @@ public abstract class Ship {
 
     // Abstract Methods to be implemented by each subclass
     public abstract String getShipType();
+
+    // Checking if the ship is already sunk
+    public boolean isSunk() {
+        for (boolean partHit : hits) {
+            if (!partHit) {
+                return false;   // If any part is not hit, the ship is not sunk
+            }
+        }
+        return true;            // All parts are hit, the ship is sunk
+    }
+
+
 }
 

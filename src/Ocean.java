@@ -1,10 +1,14 @@
+import java.util.ArrayList;
+import java.util.Random;
+
 /**
  * This class manages the game state by keeping track of what entity is
  * contained in each position on the game board.
- * 
- * @author harry
+
  *
  */
+
+
 public class Ocean implements OceanInterface {
 
 	/**
@@ -37,6 +41,17 @@ public class Ocean implements OceanInterface {
 	 * appropriately.
 	 */
 	public Ocean() {
+		this.ships = new Ship[10][10];
+		this.shotsFired = 0;
+		this.hitCount = 0;
+		this.shipsSunk = 0;
+
+		// Initialises Ship array with EmptySea objects
+		for (int row = 0; row < 10; row++) {
+			for (int column = 0; column <10; column++) {
+				this.ships[row][column] = new EmptySea();
+			}
+		}
 
 	}
 
@@ -48,7 +63,86 @@ public class Ocean implements OceanInterface {
 	 * @see java.util.Random
 	 */
 	public void placeAllShipsRandomly() {
+		Random rand = new Random();
 
+		Ship[] allShips = {
+				new Battleship(),    // Length = 4
+				new Cruiser(),       // Length = 3
+				new Cruiser(),       // Length = 3
+				new Destroyer(),     // Length = 2
+				new Destroyer(),     // Length = 2
+				new Destroyer(),     // Length = 2
+				new Submarine(),     // Length = 1
+				new Submarine(),     // Length = 1
+				new Submarine(),     // Length = 1
+				new Submarine()      // Length = 1
+		};
+
+		// Loops through all ships
+		for (Ship ship : allShips) {
+			boolean canPlace = false; // Helps determine whether ships can be placed or are out of bounds
+
+			while (!canPlace) { // Retry until a valid position is found
+				int randomColumn = rand.nextInt(10); // Generating Random Coordinates for the battleship to be placed
+				int randomRow = rand.nextInt(10);
+				boolean isHorizontal = rand.nextBoolean(); // Generates random boolean to determine layout (horizontal or vertical) of ship
+
+				// Checking bounds
+				if (isHorizontal && randomColumn + ship.getLength() > 10) { // if bounds are exceeded
+					continue;                // retry and generate new column coordinate
+				} else if (!isHorizontal && randomRow + ship.getLength() > 10) { // if bounds are exceeded
+					continue;                // retry and generate new Row coordinate
+				}
+
+				// Check for overlaps and immediate tiles next to the boat so that they remain free
+				boolean overlaps = false;
+				if (isHorizontal) {
+					for (int i = -1; i <= ship.getLength(); i++) { // Check extra spaces before and after the ship
+						for (int j = -1; j <= 1; j++) {           // Check above, below, and current row
+							int checkRow = randomRow + j;
+							int checkColumn = randomColumn + i;
+
+							if (checkRow >= 0 && checkRow < 10 && checkColumn >= 0 && checkColumn < 10) { // Ensure bounds
+								if (!(ships[checkRow][checkColumn] instanceof EmptySea)) {
+									overlaps = true;
+									break; // retry and generate new coordinates
+								}
+							}
+						}
+						if (overlaps) break;
+					}
+				} else { // Vertical placement
+					for (int i = -1; i <= ship.getLength(); i++) { // Check extra spaces above and below the ship
+						for (int j = -1; j <= 1; j++) {           // Check left, right, and current column
+							int checkRow = randomRow + i;
+							int checkColumn = randomColumn + j;
+
+							if (checkRow >= 0 && checkRow < 10 && checkColumn >= 0 && checkColumn < 10) { // Ensure bounds
+								if (!(ships[checkRow][checkColumn] instanceof EmptySea)) {
+									overlaps = true;
+									break; // retry and generate new coordinates
+								}
+							}
+						}
+						if (overlaps) break;
+					}
+				}
+
+				// Place the ship if no problems encountered
+				if (!overlaps) {
+					canPlace = true;        // if no problems encountered, exit while loop and ship can be placed!
+					if (isHorizontal) {
+						for (int i = 0; i < ship.getLength(); i++) {
+							ships[randomRow][randomColumn + i] = ship; // Place horizontally
+						}
+					} else {
+						for (int i = 0; i < ship.getLength(); i++) {
+							ships[randomRow + i][randomColumn] = ship; // Place vertically
+						}
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -61,8 +155,14 @@ public class Ocean implements OceanInterface {
 	 *         {@literal false} otherwise.
 	 */
 	public boolean isOccupied(int row, int column) {
-		return false;
+
+		if (!(ships[row][column] instanceof EmptySea)) {
+			return true;
+		} else {
+			return false;
+		}
 	}
+
 
 	/**
 	 * Fires a shot at this coordinate. This will update the number of shots that
@@ -77,7 +177,22 @@ public class Ocean implements OceanInterface {
 	 *         EmptySea), {@literal false} if it does not.
 	 */
 	public boolean shootAt(int row, int column) {
-		return false;
+		this.shotsFired++;
+		Ship ship = ships[row][column];
+
+		if (ship instanceof EmptySea) {
+			return false; // Miss
+		}
+
+		int hitIndex = ship.isHorizontal ? column - ship.column : row - ship.row;
+		ship.hits[hitIndex] = true; // Register the hit
+
+		if (ship.isSunk()) {
+			this.shipsSunk++; // Increment sunk ships count if the ship is fully sunk
+		}
+
+		this.hitCount++;
+		return true; // Hit
 	}
 
 	/**
@@ -106,7 +221,7 @@ public class Ocean implements OceanInterface {
 	 *         {@literal false}.
 	 */
 	public boolean isGameOver() {
-		return false;
+		return shipsSunk == 10; // returns true only if all ships are sunk
 	}
 
 	/**
@@ -119,7 +234,7 @@ public class Ocean implements OceanInterface {
 	 * @return the 10x10 array of ships.
 	 */
 	public Ship[][] getShipArray() {
-		return null;
+		return this.ships;
 	}
 
 	/**
@@ -142,8 +257,34 @@ public class Ocean implements OceanInterface {
 	 * debugging.
 	 * 
 	 */
-	public void print() {
 
+
+	public void print() {
+		// Print column headers
+		System.out.print("  "); // Top-left corner padding
+		for (int column = 0; column < 10; column++) {
+			System.out.print(column + " "); // Print column numbers
+		}
+		System.out.println(); // New line after column headers
+
+		// Print the grid with row numbers
+		for (int row = 0; row < 10; row++) {
+			System.out.print(row + " "); // Print row number on the left
+			for (int column = 0; column < 10; column++) {
+				Ship ship = ships[row][column];
+
+				if (ship instanceof EmptySea) {
+					System.out.print(". "); // '.' for EmptySea
+				} else if (ship.isSunk()) {
+					System.out.print("x "); // 'x' for sunken ships
+				} else if (ship.getHits()[ship.isHorizontal ? column - ship.getColumn() : row - ship.getRow()]) {
+					System.out.print("S "); // 'S' for hit ship parts
+				} else {
+					System.out.print(". "); // '.' for untouched parts of the grid
+				}
+			}
+			System.out.println(); // Move to the next row
+		}
 	}
 
 }
